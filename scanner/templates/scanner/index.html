@@ -1,68 +1,311 @@
+{% load static %}
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Radio Spectrum Scanner</title>
-    <style>
-        body {
-            font-family: Arial, sans-serif;
-            max-width: 800px;
-            margin: 50px auto;
-            padding: 20px;
-        }
-        form {
-            background: #f5f5f5;
-            padding: 20px;
-            border-radius: 5px;
-        }
-        input, button {
-            padding: 10px;
-            margin: 5px 0;
-            width: 100%;
-            box-sizing: border-box;
-        }
-        button {
-            background: #007bff;
-            color: white;
-            border: none;
-            cursor: pointer;
-            border-radius: 3px;
-        }
-        button:hover {
-            background: #0056b3;
-        }
-        .error {
-            color: red;
-            margin: 20px 0;
-        }
-        img {
-            max-width: 100%;
-            margin-top: 20px;
-        }
-    </style>
+    <title>SDR Scanner Pro</title>
+    <link href="{% static 'scanner/style.css' %}" rel="stylesheet">
 </head>
+
 <body>
-    <h1>Radio Spectrum Scanner</h1>
-    
-    <form method="POST">
-        {% csrf_token %}
-        <label>Start Frequency (MHz):</label>
-        <input type="number" name="start" step="0.1" required>
-        
-        <label>Stop Frequency (MHz):</label>
-        <input type="number" name="stop" step="0.1" required>
-        
-        <button type="submit">Scan Spectrum</button>
-    </form>
-    
-    {% if error %}
-        <div class="error">Error: {{ error }}</div>
-    {% endif %}
-    
-    {% if image_url %}
-        <h2>Scan Result:</h2>
-        <img src="{{ image_url }}" alt="Spectrum Scan">
-    {% endif %}
+    <div class="top-bar">
+        <div class="brand">Energy Detector</div>
+        <div class="actions">
+            <a href="/admin/" class="btn-link">Admin</a>
+        </div>
+    </div>
+
+    <div class="main-container">
+        <div class="sidebar">
+            <div class="content-box">
+                <h3>Scan Controls</h3>
+                <form id="scanForm">
+                    <div class="form-group">
+                        <label>Start Frequency (MHz)</label>
+                        <input type="number" step="0.1" class="simple-input" id="startFreq" value="88.0" required>
+                    </div>
+                    <div class="form-group">
+                        <label>Stop Frequency (MHz)</label>
+                        <input type="number" step="0.1" class="simple-input" id="stopFreq" value="108.0" required>
+                    </div>
+                    <button type="submit" class="std-btn btn-blue w-100" id="btnScan">Scan Now</button>
+                </form>
+
+                <hr style="border: 0; border-top: 1px solid #ccc; margin: 20px 0;">
+
+                <h3>Scheduler</h3>
+                <div class="flex-row">
+                    <div class="col-half">
+                        <input type="number" class="simple-input" id="scheduleInterval" value="1">
+                    </div>
+                    <div class="col-half">
+                        <select class="simple-select" id="scheduleIntervalUnit">
+                            <option value="seconds">Seconds</option>
+                            <option value="minutes">Minutes</option>
+                            <option value="hours">Hours</option>
+                            <option value="days">Days</option>
+                        </select>
+                    </div>
+                </div>
+                <div style="margin-top: 10px;">
+                    <button class="std-btn btn-green w-100" id="btnSchedule">Start</button>
+                    <button class="std-btn btn-red w-100 hidden" id="btnStopSchedule">Stop</button>
+                </div>
+            </div>
+        </div>
+
+        <div class="main-content">
+            <div class="content-box">
+                <div class="panel-header" style="display: flex; justify-content: space-between;">
+                    <span>Live Spectrum Result</span>
+                    <small style="color: #666;" id="lastUpdated">-</small>
+                </div>
+
+                <div class="result-area">
+                    <div id="scanLoader" class="hidden" style="text-align: center;">
+                        <div class="loader"></div>
+                        <p style="margin-top: 10px; color: #ccc;">Acquiring signal...</p>
+                    </div>
+                    <img id="resultImage" src="" class="hidden" alt="Spectrum">
+                    <div id="placeholderText" style="text-align: center;">Ready to scan</div>
+                </div>
+            </div>
+        </div>
+
+        <div style="width: 100%;">
+            <div class="content-box">
+                <div class="panel-header">
+                    Scan History
+                </div>
+                <table class="simple-table">
+                    <thead>
+                        <tr>
+                            <th>ID</th>
+                            <th>Date/Time</th>
+                            <th>Range (MHz)</th>
+                            <th>Action</th>
+                        </tr>
+                    </thead>
+                    <tbody id="historyTableBody">
+                        <!-- Populated by JS -->
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+    <div id="imageModal" class="basic-modal">
+        <div class="modal-content">
+            <span class="close-btn" onclick="closeModal()">&times;</span>
+            <h3 style="margin-top: 0;">Scan Detail</h3>
+            <div style="text-align: center;">
+                <img id="modalImage" src="" style="max-width: 100%;" alt="Full Resolution Scan">
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // CSRF Setup
+        function getCookie(name) {
+            let cookieValue = null;
+            if (document.cookie && document.cookie !== '') {
+                const cookies = document.cookie.split(';');
+                for (let i = 0; i < cookies.length; i++) {
+                    const cookie = cookies[i].trim();
+                    if (cookie.substring(0, name.length + 1) === (name + '=')) {
+                        cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+                        break;
+                    }
+                }
+            }
+            return cookieValue;
+        }
+        const csrftoken = getCookie('csrftoken');
+
+        // State
+        let schedulerId = null;
+        let isScanning = false;
+
+        // Elements
+        const scanForm = document.getElementById('scanForm');
+        const btnScan = document.getElementById('btnScan');
+        const resultImage = document.getElementById('resultImage');
+        const placeholderText = document.getElementById('placeholderText');
+        const scanLoader = document.getElementById('scanLoader');
+        const historyTableBody = document.getElementById('historyTableBody');
+        const statusDot = document.getElementById('statusDot');
+
+        const btnSchedule = document.getElementById('btnSchedule');
+        const btnStopSchedule = document.getElementById('btnStopSchedule');
+        const scheduleInterval = document.getElementById('scheduleInterval');
+        const scheduleIntervalUnit = document.getElementById('scheduleIntervalUnit');
+
+        // Init
+        loadHistory();
+
+        // Event Listeners
+        scanForm.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            await performScan();
+        });
+
+        btnSchedule.addEventListener('click', () => {
+            let interval = parseInt(scheduleInterval.value);
+            const unit = scheduleIntervalUnit.value;
+
+            // Convert to ms
+            if (unit === 'seconds') interval *= 1000;
+            if (unit === 'minutes') interval *= 60000;
+            if (unit === 'hours') interval *= 3600000;
+            if (unit === 'days') interval *= 86400000;
+
+            if (interval < 1000) {
+                alert("Minimum interval is 1 second");
+                return;
+            }
+
+            startScheduler(interval);
+        });
+
+        btnStopSchedule.addEventListener('click', () => {
+            stopScheduler();
+        });
+
+        // Functions
+        async function performScan() {
+            if (isScanning) return;
+            setScanning(true);
+
+            const start = document.getElementById('startFreq').value;
+            const stop = document.getElementById('stopFreq').value;
+
+            const formData = new FormData();
+            formData.append('start', start);
+            formData.append('stop', stop);
+
+            try {
+                const response = await fetch('/api/scan/', {
+                    method: 'POST',
+                    headers: {
+                        'X-CSRFToken': csrftoken
+                    },
+                    body: formData
+                });
+
+                const data = await response.json();
+
+                if (data.status === 'success') {
+                    updateResult(data.scan);
+                    loadHistory(); // Refresh history
+                } else {
+                    alert('Scan Failed: ' + data.message);
+                }
+            } catch (error) {
+                console.error('Error:', error);
+                alert('Scan Error: ' + error.message);
+            } finally {
+                setScanning(false);
+            }
+        }
+
+        function updateResult(scan) {
+            resultImage.src = '/' + scan.image_url;
+            resultImage.classList.remove('hidden');
+            resultImage.style.display = 'block'; // Ensure display if mixed with class
+            placeholderText.classList.add('hidden');
+            document.getElementById('lastUpdated').innerText = 'Last updated: ' + scan.created_at;
+        }
+
+        function setScanning(active) {
+            isScanning = active;
+            btnScan.disabled = active;
+            if (active) {
+                scanLoader.classList.remove('hidden');
+                resultImage.classList.add('hidden');
+                placeholderText.classList.add('hidden');
+                statusDot.className = "status-dot dot-green";
+                statusDot.style.boxShadow = "0 0 5px #28a745";
+            } else {
+                scanLoader.classList.add('hidden');
+                statusDot.className = "status-dot " + (schedulerId ? "dot-green" : "dot-grey");
+                statusDot.style.boxShadow = "none";
+            }
+        }
+
+        async function loadHistory() {
+            try {
+                const response = await fetch('/api/history/');
+                const data = await response.json();
+
+                if (data.status === 'success') {
+                    renderHistory(data.history);
+                }
+            } catch (error) {
+                console.error('History load failed', error);
+            }
+        }
+
+        function renderHistory(scans) {
+            historyTableBody.innerHTML = scans.map(s => `
+            <tr>
+                <td>${s.id}</td>
+                <td>${s.created_at}</td>
+                <td>${s.start} - ${s.stop}</td>
+                <td>
+                    <button class="std-btn btn-blue btn-sm" onclick="viewImage('/${s.image_url}')">View</button>
+                </td>
+            </tr>
+        `).join('');
+        }
+
+        // Modal Functions
+        window.viewImage = function (url) {
+            const modal = document.getElementById('imageModal');
+            document.getElementById('modalImage').src = url;
+            modal.style.display = "block";
+        }
+
+        window.closeModal = function () {
+            document.getElementById('imageModal').style.display = "none";
+        }
+
+        // Close modal if clicked outside
+        window.onclick = function (event) {
+            const modal = document.getElementById('imageModal');
+            if (event.target == modal) {
+                modal.style.display = "none";
+            }
+        }
+
+        // Scheduler
+        function startScheduler(interval) {
+            if (schedulerId) clearInterval(schedulerId);
+
+            btnSchedule.classList.add('hidden');
+            btnStopSchedule.classList.remove('hidden');
+            scheduleInterval.disabled = true;
+
+            statusDot.className = "status-dot dot-green";
+
+            performScan(); // Immediate scan
+            schedulerId = setInterval(performScan, interval);
+        }
+
+        function stopScheduler() {
+            if (schedulerId) {
+                clearInterval(schedulerId);
+                schedulerId = null;
+            }
+
+            btnSchedule.classList.remove('hidden');
+            btnStopSchedule.classList.add('hidden');
+            scheduleInterval.disabled = false;
+
+            statusDot.className = "status-dot dot-grey";
+        }
+    </script>
+
 </body>
+
 </html>

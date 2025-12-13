@@ -7,8 +7,22 @@ import matplotlib.pyplot as plt
 import matplotlib
 matplotlib.use('Agg') # Важливо: режим без вікна, щоб працювало на сервері
 import os
+import uuid
+import datetime
+
+# Try to import SoapySDR, if missing, we can fail gracefully or mock
+try:
+    import SoapySDR
+    from SoapySDR import SOAPY_SDR_RX, SOAPY_SDR_CF32
+    SOAPY_AVAILABLE = True
+except ImportError:
+    SOAPY_AVAILABLE = False
+    print("WARNING: SoapySDR not found. Scanner will not work.")
 
 def scan_spectrum_web(start_freq, stop_freq):
+    if not SOAPY_AVAILABLE:
+        return None, None, "Error: SoapySDR library not found. Cannot access HackRF."
+
     try:
         # === 1. Підготовка HackRF ===
         results = SoapySDR.Device.enumerate({"driver": "hackrf"})
@@ -88,18 +102,26 @@ def scan_spectrum_web(start_freq, stop_freq):
         if not os.path.exists(static_dir):
             os.makedirs(static_dir)
             
-        img_filename = 'scan_res.png'
-        img_path = os.path.join(static_dir, img_filename)
+        # Unique filename
+        timestamp = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
+        unique_id = uuid.uuid4().hex[:6]
+        img_filename = f'scan_{timestamp}_{unique_id}.png'
+        img_path_abs = os.path.join(scans_dir, img_filename)
         
-        # Видаляємо старий графік, якщо є
-        if os.path.exists(img_path):
-            os.remove(img_path)
-            
-        plt.savefig(img_path)
-        plt.close() # Обов'язково закриваємо фігуру
+        plt.savefig(img_path_abs)
+        plt.close()
         
-        # Повертаємо шлях, який зрозуміє HTML (static/scan_res.png)
-        return 'static/' + img_filename, None
+        # Return relative path for DB/Frontend
+        # static/scans/filename.png
+        relative_path = f'static/scans/{img_filename}'
+        
+        raw_data = {
+            "freqs": freqs,
+            "energies": energies,
+            "threshold": threshold
+        }
+        
+        return relative_path, raw_data, None
 
     except Exception as e:
-        return None, str(e)
+        return None, None, str(e)
