@@ -1,5 +1,3 @@
-import SoapySDR
-from SoapySDR import *
 import numpy as np
 import time
 from scipy.stats import norm
@@ -24,6 +22,7 @@ def scan_spectrum_web(start_freq, stop_freq):
         return None, None, "Error: SoapySDR library not found. Cannot access HackRF."
 
     try:
+        scans_dir = os.path.join(os.getcwd(), 'static')
         # === 1. Підготовка HackRF ===
         results = SoapySDR.Device.enumerate({"driver": "hackrf"})
         if not results:
@@ -112,13 +111,14 @@ def scan_spectrum_web(start_freq, stop_freq):
         plt.close()
         
         # Return relative path for DB/Frontend
-        # static/scans/filename.png
-        relative_path = f'static/scans/{img_filename}'
+        # static/filename.png
+        relative_path = f'static/{img_filename}'
         
+        # Convert numpy types to native Python types for JSON serialization
         raw_data = {
-            "freqs": freqs,
-            "energies": energies,
-            "threshold": threshold
+            "freqs": [float(f) for f in freqs],
+            "energies": [float(e) for e in energies],
+            "threshold": float(threshold)
         }
         
         return relative_path, raw_data, None

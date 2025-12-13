@@ -42,7 +42,6 @@
                     </div>
                     <div class="col-half">
                         <select class="simple-select" id="scheduleIntervalUnit">
-                            <option value="seconds">Seconds</option>
                             <option value="minutes">Minutes</option>
                             <option value="hours">Hours</option>
                             <option value="days">Days</option>
@@ -134,7 +133,6 @@
         const placeholderText = document.getElementById('placeholderText');
         const scanLoader = document.getElementById('scanLoader');
         const historyTableBody = document.getElementById('historyTableBody');
-        const statusDot = document.getElementById('statusDot');
 
         const btnSchedule = document.getElementById('btnSchedule');
         const btnStopSchedule = document.getElementById('btnStopSchedule');
@@ -224,12 +222,8 @@
                 scanLoader.classList.remove('hidden');
                 resultImage.classList.add('hidden');
                 placeholderText.classList.add('hidden');
-                statusDot.className = "status-dot dot-green";
-                statusDot.style.boxShadow = "0 0 5px #28a745";
             } else {
                 scanLoader.classList.add('hidden');
-                statusDot.className = "status-dot " + (schedulerId ? "dot-green" : "dot-grey");
-                statusDot.style.boxShadow = "none";
             }
         }
 
@@ -286,8 +280,6 @@
             btnStopSchedule.classList.remove('hidden');
             scheduleInterval.disabled = true;
 
-            statusDot.className = "status-dot dot-green";
-
             performScan(); // Immediate scan
             schedulerId = setInterval(performScan, interval);
         }
@@ -301,8 +293,6 @@
             btnSchedule.classList.remove('hidden');
             btnStopSchedule.classList.add('hidden');
             scheduleInterval.disabled = false;
-
-            statusDot.className = "status-dot dot-grey";
         }
     </script>
 
