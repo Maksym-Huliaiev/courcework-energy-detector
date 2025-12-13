@@ -1,0 +1,4 @@
+*.png
+*.save
+__pycache__/
+.vs

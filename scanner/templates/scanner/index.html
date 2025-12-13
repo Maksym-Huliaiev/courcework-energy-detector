@@ -1,0 +1,68 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Radio Spectrum Scanner</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 50px auto;
+            padding: 20px;
+        }
+        form {
+            background: #f5f5f5;
+            padding: 20px;
+            border-radius: 5px;
+        }
+        input, button {
+            padding: 10px;
+            margin: 5px 0;
+            width: 100%;
+            box-sizing: border-box;
+        }
+        button {
+            background: #007bff;
+            color: white;
+            border: none;
+            cursor: pointer;
+            border-radius: 3px;
+        }
+        button:hover {
+            background: #0056b3;
+        }
+        .error {
+            color: red;
+            margin: 20px 0;
+        }
+        img {
+            max-width: 100%;
+            margin-top: 20px;
+        }
+    </style>
+</head>
+<body>
+    <h1>Radio Spectrum Scanner</h1>
+    
+    <form method="POST">
+        {% csrf_token %}
+        <label>Start Frequency (MHz):</label>
+        <input type="number" name="start" step="0.1" required>
+        
+        <label>Stop Frequency (MHz):</label>
+        <input type="number" name="stop" step="0.1" required>
+        
+        <button type="submit">Scan Spectrum</button>
+    </form>
+    
+    {% if error %}
+        <div class="error">Error: {{ error }}</div>
+    {% endif %}
+    
+    {% if image_url %}
+        <h2>Scan Result:</h2>
+        <img src="{{ image_url }}" alt="Spectrum Scan">
+    {% endif %}
+</body>
+</html>
