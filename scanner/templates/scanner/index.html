@@ -5,7 +5,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>SDR Scanner Pro</title>
+    <title>Energy Detector</title>
     <link href="{% static 'scanner/style.css' %}" rel="stylesheet">
 </head>
 
@@ -20,37 +20,37 @@
     <div class="main-container">
         <div class="sidebar">
             <div class="content-box">
-                <h3>Scan Controls</h3>
+                <h3>Настройка діапазону</h3>
                 <form id="scanForm">
                     <div class="form-group">
-                        <label>Start Frequency (MHz)</label>
+                        <label>Початкова частота (MHz)</label>
                         <input type="number" step="0.1" class="simple-input" id="startFreq" value="88.0" required>
                     </div>
                     <div class="form-group">
-                        <label>Stop Frequency (MHz)</label>
+                        <label>Кінцева частота (MHz)</label>
                         <input type="number" step="0.1" class="simple-input" id="stopFreq" value="108.0" required>
                     </div>
-                    <button type="submit" class="std-btn btn-blue w-100" id="btnScan">Scan Now</button>
+                    <button type="submit" class="std-btn btn-blue w-100" id="btnScan">Просканувати</button>
                 </form>
 
                 <hr style="border: 0; border-top: 1px solid #ccc; margin: 20px 0;">
 
-                <h3>Scheduler</h3>
+                <h3>Розклад сканування</h3>
                 <div class="flex-row">
                     <div class="col-half">
                         <input type="number" class="simple-input" id="scheduleInterval" value="1">
                     </div>
                     <div class="col-half">
                         <select class="simple-select" id="scheduleIntervalUnit">
-                            <option value="minutes">Minutes</option>
-                            <option value="hours">Hours</option>
-                            <option value="days">Days</option>
+                            <option value="minutes">Хвилини</option>
+                            <option value="hours">Години</option>
+                            <option value="days">Дні</option>
                         </select>
                     </div>
                 </div>
                 <div style="margin-top: 10px;">
-                    <button class="std-btn btn-green w-100" id="btnSchedule">Start</button>
-                    <button class="std-btn btn-red w-100 hidden" id="btnStopSchedule">Stop</button>
+                    <button class="std-btn btn-green w-100" id="btnSchedule">Почати</button>
+                    <button class="std-btn btn-red w-100 hidden" id="btnStopSchedule">Зупинити</button>
                 </div>
             </div>
         </div>
@@ -58,17 +58,17 @@
         <div class="main-content">
             <div class="content-box">
                 <div class="panel-header" style="display: flex; justify-content: space-between;">
-                    <span>Live Spectrum Result</span>
+                    <span>Результат сканування</span>
                     <small style="color: #666;" id="lastUpdated">-</small>
                 </div>
 
                 <div class="result-area">
                     <div id="scanLoader" class="hidden" style="text-align: center;">
                         <div class="loader"></div>
-                        <p style="margin-top: 10px; color: #ccc;">Acquiring signal...</p>
+                        <p style="margin-top: 10px; color: #ccc;">Cканую...</p>
                     </div>
                     <img id="resultImage" src="" class="hidden" alt="Spectrum">
-                    <div id="placeholderText" style="text-align: center;">Ready to scan</div>
+                    <div id="placeholderText" style="text-align: center;"></div>
                 </div>
             </div>
         </div>
@@ -76,15 +76,15 @@
         <div style="width: 100%;">
             <div class="content-box">
                 <div class="panel-header">
-                    Scan History
+                    Історія сканувань
                 </div>
                 <table class="simple-table">
                     <thead>
                         <tr>
                             <th>ID</th>
-                            <th>Date/Time</th>
-                            <th>Range (MHz)</th>
-                            <th>Action</th>
+                            <th>Час</th>
+                            <th>Діапазон (MHz)</th>
+                            <th>Результат</th>
                         </tr>
                     </thead>
                     <tbody id="historyTableBody">
@@ -212,7 +212,7 @@
             resultImage.classList.remove('hidden');
             resultImage.style.display = 'block'; // Ensure display if mixed with class
             placeholderText.classList.add('hidden');
-            document.getElementById('lastUpdated').innerText = 'Last updated: ' + scan.created_at;
+            document.getElementById('lastUpdated').innerText = 'Останнє сканування: ' + scan.created_at;
         }
 
         function setScanning(active) {
@@ -247,7 +247,7 @@
                 <td>${s.created_at}</td>
                 <td>${s.start} - ${s.stop}</td>
                 <td>
-                    <button class="std-btn btn-blue btn-sm" onclick="viewImage('/${s.image_url}')">View</button>
+                    <button class="std-btn btn-blue btn-sm" onclick="viewImage('/${s.image_url}')">Подивитись</button>
                 </td>
             </tr>
         `).join('');
